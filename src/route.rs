@@ -50,15 +50,11 @@ async fn sign(
         return Err(Error::InvalidRpcMethod(method));
     }
 
+    let gas_price = request.gas_price();
+
     let wallet = config.wallet().await?;
     let tx_envelop = request
-        .with_value(U256::from(100))
-        .with_nonce(20)
-        .with_gas_price(600_000_000)
-        .with_gas_limit(1_000_000_000)
-        .with_max_priority_fee_per_gas(1_000_000_000)
-        .with_max_fee_per_gas(20_000_000_000)
-        .with_chain_id(57770793173)
+        .with_gas_price(gas_price.unwrap_or(90000))
         .build(&wallet)
         .await?;
 
