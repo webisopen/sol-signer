@@ -1,0 +1,24 @@
+[package]
+name = "eth-signer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+dotenvy = "^0.15.0"
+thiserror = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+axum = { version = "0.7", features = ["macros"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+alloy = { version = "0.5", features = [
+    "full",
+    "signer-keystore",
+    "signer-mnemonic",
+    "signer-aws",
+    "signer-gcp",
+] }
+eyre = "0.6"
+aws-config = "1.5"
+aws-sdk-kms = "1.48.0"
+gcloud-sdk = "0.25"
+clap = { version = "4.5", features = ["derive", "env"] }
