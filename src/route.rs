@@ -1,8 +1,8 @@
+use crate::error::RPCResult;
 use crate::prelude::*;
 use crate::signer::SignerConfig;
 use alloy::{
-    eips::eip2718::Encodable2718, network::TransactionBuilder, primitives::U256,
-    rpc::types::TransactionRequest,
+    eips::eip2718::Encodable2718, network::TransactionBuilder, rpc::types::TransactionRequest,
 };
 
 use axum::{
@@ -45,18 +45,22 @@ async fn sign(
         method,
         params: [request],
     }): Json<SignRequest>,
-) -> Result<Json<SignReponse>> {
+) -> RPCResult<Json<SignReponse>> {
+    let rpc_err_map = |e: Error| e.rpc_error(id, jsonrpc.clone());
+
     if method != "eth_sendTransaction" {
-        return Err(Error::InvalidRpcMethod(method));
+        return Err(Error::InvalidRpcMethod(method)).map_err(rpc_err_map);
     }
 
     let gas_price = request.gas_price();
 
-    let wallet = config.wallet().await?;
+    let wallet = config.wallet().await.map_err(rpc_err_map)?;
     let tx_envelop = request
         .with_gas_price(gas_price.unwrap_or(90000))
         .build(&wallet)
-        .await?;
+        .await
+        .map_err(Error::TransactionBuilderError)
+        .map_err(rpc_err_map)?;
 
     let mut encoded_tx = Vec::<u8>::new();
 
