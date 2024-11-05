@@ -2,8 +2,12 @@ use crate::error::RPCResult;
 use crate::prelude::*;
 use crate::signer::SignerConfig;
 use alloy::{
-    eips::eip2718::Encodable2718, network::TransactionBuilder, rpc::types::TransactionRequest,
+    eips::eip2718::Encodable2718,
+    network::TransactionBuilder,
+    primitives::TxKind,
+    rpc::types::{TransactionInput, TransactionRequest},
 };
+use tracing::info;
 
 use axum::{
     extract::{Json, State},
@@ -42,6 +46,22 @@ async fn sign(
     }): Json<SignRequest>,
 ) -> RPCResult<Json<SignReponse>> {
     let rpc_err_map = |e: Error| e.rpc_error(id, jsonrpc.clone());
+
+    {
+        let TransactionRequest {
+            from, to, input, ..
+        } = request.clone();
+        let TransactionInput { input, data } = input;
+        let input = input.map(|i| i.to_string());
+        let data = data.map(|d| d.to_string());
+
+        let from = from.unwrap_or_default();
+        let to = to.map(|kind| match kind {
+            TxKind::Create => String::from("create"),
+            TxKind::Call(addr) => addr.to_string(),
+        });
+        info!(from = from.to_string(), to, input, data, "sign request");
+    };
 
     if method != "eth_sendTransaction" {
         return Err(Error::InvalidRpcMethod(method)).map_err(rpc_err_map);
