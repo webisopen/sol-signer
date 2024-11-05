@@ -7,19 +7,14 @@ use alloy::{
 
 use axum::{
     extract::{Json, State},
-    response::IntoResponse,
     routing::{get, post},
     Router,
 };
 use serde::{Deserialize, Serialize};
 
-async fn get_config(State(config): State<SignerConfig>) -> impl IntoResponse {
-    axum::Json(config)
-}
-
-async fn pub_key(config: State<SignerConfig>) -> impl IntoResponse {
-    let addr = config.address().await.unwrap();
-    format!("{:?}", addr)
+async fn pub_key(config: State<SignerConfig>) -> Result<String> {
+    let addr = config.address().await?;
+    Ok(addr.to_string())
 }
 
 #[derive(Debug, Deserialize)]
@@ -77,7 +72,7 @@ async fn sign(
 
 pub fn routes(state: SignerConfig) -> Router {
     Router::new()
-        .route("/config", get(get_config))
+        .route("/healthz", get(|| async { "OK" }))
         .route("/pub", get(pub_key))
         .route("/", post(sign))
         .with_state(state)

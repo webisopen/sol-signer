@@ -39,6 +39,16 @@ pub enum Error {
     InvalidRpcMethod(String),
 }
 
+impl IntoResponse for Error {
+    fn into_response(self) -> Response {
+        (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            self.to_string(),
+        )
+            .into_response()
+    }
+}
+
 #[derive(Debug)]
 pub struct RPCError {
     id: u64,
