@@ -12,6 +12,9 @@ permissions:
   pull-requests: write
   packages: write
 
+env:
+  GAR_REGISTRY: us-central1-docker.pkg.dev/open-440103/docker
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -20,6 +23,22 @@ jobs:
         uses: actions/checkout@v4
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
+      - name: Google auth
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          token_format: access_token
+          workload_identity_provider: projects/987979088361/locations/global/workloadIdentityPools/github/providers/github-action
+          service_account: gh-action@naturalselectionlabs.iam.gserviceaccount.com
+          create_credentials_file: true
+
+      - name: Login to GAR
+        uses: docker/login-action@v3
+        with:
+          registry: us-central1-docker.pkg.dev
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
 
       - name: Log in to the Container registry
         uses: docker/login-action@v3
@@ -32,7 +51,9 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}
+          images: |
+            ghcr.io/${{ github.repository }}
+            ${{ env.GAR_REGISTRY }}/eth-signer
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=semver,pattern={{version}}
