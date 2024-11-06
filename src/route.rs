@@ -5,7 +5,7 @@ use crate::prelude::*;
 use crate::signer::SignerConfig;
 use alloy::{
     network::TransactionBuilder,
-    primitives::{address, TxKind},
+    primitives::TxKind,
     rlp::Encodable,
     rpc::types::{TransactionInput, TransactionRequest},
 };
@@ -74,37 +74,33 @@ async fn sign(
 
     let gas_price = request.gas_price();
 
-    let tx = request
+    let wallet = config.wallet().await.map_err(rpc_err_map)?;
+    let tx_envelop = request
         .with_gas_price(gas_price.unwrap_or(90000))
-        .build_typed_tx()
-        .map_err(|_| Error::BuildTransactionError(format!("tx_type is none")))
+        .build(&wallet)
+        .await
+        .map_err(Error::TransactionBuilderError)
         .map_err(rpc_err_map)?;
 
     let mut tx_hash = DefaultHasher::new();
-    tx.hash(&mut tx_hash);
-
-    let signature = config.sign_transaction(tx).await.map_err(rpc_err_map)?;
-
-    let mut sign_hash = DefaultHasher::new();
-    signature.hash(&mut sign_hash);
+    tx_envelop.tx_hash().hash(&mut tx_hash);
 
     info!(
-        request = req_hash.finish(),
-        tx = tx_hash.finish(),
-        sign = sign_hash.finish(),
-        "check hash"
+        req_hash = req_hash.finish(),
+        tx_hash = tx_hash.finish(),
+        "sign tx"
     );
 
-    let mut encoded_sign = Vec::<u8>::new();
+    let mut encoded_tx = Vec::<u8>::new();
 
-    signature.encode(&mut encoded_sign);
+    tx_envelop.encode(&mut encoded_tx);
 
-    let hex: String = encoded_sign.iter().map(|b| format!("{:02x}", b)).collect();
+    let hex_string: String = encoded_tx.iter().map(|b| format!("{:02x?}", b)).collect();
 
     Ok(Json(SignReponse {
         id,
         jsonrpc,
-        result: format!("0x{}", hex),
+        result: format!("0x{}", hex_string),
     }))
 }
 

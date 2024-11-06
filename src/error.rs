@@ -29,14 +29,8 @@ pub enum Error {
     #[error(transparent)]
     TransactionBuilderError(#[from] alloy::network::TransactionBuilderError<Ethereum>),
 
-    #[error("Build transaction error: {0}")]
-    BuildTransactionError(String),
-
     #[error("Invalid signer type '{0}'")]
     InvalidSignerType(String),
-
-    #[error("Invalid transaction type '{0}'")]
-    InvalidTransactionType(String),
 
     #[error("Require config key '{0}' not found")]
     RequireConfigKeyNotFound(&'static str),
@@ -73,13 +67,16 @@ impl IntoResponse for RPCError {
             error: String,
         }
 
+        let err_string = self.error.to_string();
+        tracing::info!(err_string);
+
         {
             (
                 axum::http::StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrResponse {
                     id: self.id,
                     jsonrpc: self.jsonrpc,
-                    error: self.error.to_string(),
+                    error: err_string,
                 }),
             )
                 .into_response()

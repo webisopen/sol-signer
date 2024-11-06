@@ -1,7 +1,9 @@
+mod config;
+pub use config::SignerConfig;
+
 use crate::prelude::*;
 use alloy::{
-    consensus::TypedTransaction,
-    network::TxSigner,
+    network::{EthereumWallet, TxSigner},
     primitives::Address,
     signers::{
         aws::AwsSigner,
@@ -14,40 +16,9 @@ use alloy::{
 use gcloud_sdk::{
     google::cloud::kms::v1::key_management_service_client::KeyManagementServiceClient, GoogleApi,
 };
-use serde::{Deserialize, Serialize};
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "type")]
-#[serde(rename_all = "snake_case")]
-pub enum SignerConfig {
-    PrivateKey(String),
-    Mnemonic(String),
-    KeyStore {
-        path: String,
-        password: String,
-    },
-    AzureKeyVault {
-        key: String,
-        secret: String,
-    },
-    AwsKms {
-        key: String,
-    },
-    GoogleKms {
-        project_id: String,
-        location: String,
-        key_ring: String,
-        key: String,
-        version: u64,
-    },
-    AlicloudKms {
-        key: String,
-        secret: String,
-    },
-}
 
 impl SignerConfig {
-    pub async fn signer(&self) -> Result<Box<dyn TxSigner<Signature> + Send + Sync + 'static>> {
+    async fn signer(&self) -> Result<Box<dyn TxSigner<Signature> + Send + Sync + 'static>> {
         let signer: Box<dyn TxSigner<Signature> + Send + Sync + 'static> = match self {
             SignerConfig::PrivateKey(key) => Box::new(key.parse::<PrivateKeySigner>()?),
             SignerConfig::Mnemonic(mnemonic) => Box::new(
@@ -87,40 +58,24 @@ impl SignerConfig {
         Ok(signer)
     }
 
-    pub async fn sign_transaction(&self, tx: TypedTransaction) -> Result<Signature> {
+    pub async fn wallet(&self) -> Result<EthereumWallet> {
         let signer = self.signer().await?;
-
-        match tx {
-            TypedTransaction::Eip1559(tx) => {
-                let mut tx_1559 = tx.clone();
-
-                signer
-                    .sign_transaction(&mut tx_1559)
-                    .await
-                    .map_err(Error::SignerError)
-            }
-            TypedTransaction::Eip2930(tx) => {
-                let mut tx_2930 = tx.clone();
-
-                signer
-                    .sign_transaction(&mut tx_2930)
-                    .await
-                    .map_err(Error::SignerError)
-            }
-            TypedTransaction::Eip4844(tx) => {
-                let mut tx_4844 = tx.clone();
-
-                signer
-                    .sign_transaction(&mut tx_4844)
-                    .await
-                    .map_err(Error::SignerError)
-            }
-            tx => Err(Error::InvalidTransactionType(tx.tx_type().to_string())),
-        }
+        Ok(EthereumWallet::new(signer))
     }
 
     pub async fn address(&self) -> Result<Address> {
         let signer = self.signer().await?;
         Ok(signer.address())
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // #[test]
+    // fn test_rlp() {
+    //     let rlp = "0xa3f20717a250c2b0b729b7e5becbff67fdaef7e0699da4de7ca5895b02a170a12d887fd3b17bfdce3481f10bea41f45ba9f709d39ce8325427b57afcfc994cee1b";
+    //     let tx = TypedTransaction::
+    // }
 }
