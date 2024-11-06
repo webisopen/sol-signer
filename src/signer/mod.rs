@@ -4,12 +4,11 @@ pub use config::SignerConfig;
 use crate::prelude::*;
 use alloy::{
     network::{EthereumWallet, TxSigner},
-    primitives::Address,
+    primitives::{Address, PrimitiveSignature},
     signers::{
         aws::AwsSigner,
         gcp::{GcpKeyRingRef, GcpSigner, KeySpecifier},
         local::{coins_bip39::English, LocalSigner, MnemonicBuilder, PrivateKeySigner},
-        Signature,
     },
 };
 
@@ -18,8 +17,10 @@ use gcloud_sdk::{
 };
 
 impl SignerConfig {
-    async fn signer(&self) -> Result<Box<dyn TxSigner<Signature> + Send + Sync + 'static>> {
-        let signer: Box<dyn TxSigner<Signature> + Send + Sync + 'static> = match self {
+    async fn signer(
+        &self,
+    ) -> Result<Box<dyn TxSigner<PrimitiveSignature> + Send + Sync + 'static>> {
+        let signer: Box<dyn TxSigner<PrimitiveSignature> + Send + Sync + 'static> = match self {
             SignerConfig::PrivateKey(key) => Box::new(key.parse::<PrivateKeySigner>()?),
             SignerConfig::Mnemonic(mnemonic) => Box::new(
                 MnemonicBuilder::<English>::default()
