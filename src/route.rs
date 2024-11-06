@@ -63,7 +63,7 @@ async fn sign(
         info!(from = from.to_string(), to, input, data, "sign request");
     };
 
-    if method != "eth_sendTransaction" {
+    if method != "eth_signTransaction" {
         return Err(Error::InvalidRpcMethod(method)).map_err(rpc_err_map);
     }
 
