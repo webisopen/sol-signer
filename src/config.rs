@@ -8,7 +8,7 @@ use crate::signer::SignerConfig;
 #[command(next_line_help = true)]
 pub struct SignerOpts {
     #[arg(short, long, default_value_t = false)]
-    debug: bool,
+    pub debug: bool,
 
     #[arg(name = "type", short = 't', long, env = "SIGNER_TYPE")]
     _type: String,

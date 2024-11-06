@@ -14,13 +14,19 @@ use tracing_subscriber::{self, layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() -> prelude::Result<()> {
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "debug".into()),
-        )
-        .with(tracing_subscriber::fmt::layer())
-        .init();
+    let args = config::SignerOpts::parse();
+
+    let subscriber = tracing_subscriber::registry().with(
+        tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "debug".into()),
+    );
+
+    if args.debug {
+        subscriber.with(tracing_subscriber::fmt::layer()).init();
+    } else {
+        subscriber
+            .with(tracing_subscriber::fmt::layer().json().flatten_event(true))
+            .init();
+    }
 
     let port = std::env::var("PORT")
         .ok()
@@ -30,8 +36,6 @@ async fn main() -> prelude::Result<()> {
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     let lisenter = TcpListener::bind(&addr).await.unwrap();
     tracing::info!("listening on {}", addr);
-
-    let args = config::SignerOpts::parse();
 
     let signer_config: signer::SignerConfig = args.try_into()?;
 
