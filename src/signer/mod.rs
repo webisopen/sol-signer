@@ -99,6 +99,14 @@ impl SignerConfig {
                     .await
                     .map_err(Error::SignerError)
             }
+            TypedTransaction::Eip2930(tx) => {
+                let mut tx_2930 = tx.clone();
+
+                signer
+                    .sign_transaction(&mut tx_2930)
+                    .await
+                    .map_err(Error::SignerError)
+            }
             TypedTransaction::Eip4844(tx) => {
                 let mut tx_4844 = tx.clone();
 
