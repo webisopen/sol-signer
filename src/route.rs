@@ -4,9 +4,9 @@ use crate::error::RPCResult;
 use crate::prelude::*;
 use crate::signer::SignerConfig;
 use alloy::{
+    eips::eip2718::Encodable2718,
     network::TransactionBuilder,
     primitives::TxKind,
-    rlp::Encodable,
     rpc::types::{TransactionInput, TransactionRequest},
 };
 use tracing::info;
@@ -93,7 +93,7 @@ async fn sign(
 
     let mut encoded_tx = Vec::<u8>::new();
 
-    tx_envelop.encode(&mut encoded_tx);
+    tx_envelop.encode_2718(&mut encoded_tx);
 
     let hex_string: String = encoded_tx.iter().map(|b| format!("{:02x?}", b)).collect();
 
