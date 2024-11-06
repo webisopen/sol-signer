@@ -76,8 +76,8 @@ async fn sign(
 
     let tx = request
         .with_gas_price(gas_price.unwrap_or(90000))
-        .build_consensus_tx()
-        .map_err(|e| Error::BuildTransactionError(e.error))
+        .build_typed_tx()
+        .map_err(|_| Error::BuildTransactionError(format!("tx_type is none")))
         .map_err(rpc_err_map)?;
 
     let mut tx_hash = DefaultHasher::new();
