@@ -29,8 +29,14 @@ pub enum Error {
     #[error(transparent)]
     TransactionBuilderError(#[from] alloy::network::TransactionBuilderError<Ethereum>),
 
+    #[error("Build transaction error: {0}")]
+    BuildTransactionError(String),
+
     #[error("Invalid signer type '{0}'")]
     InvalidSignerType(String),
+
+    #[error("Invalid transaction type '{0}'")]
+    InvalidTransactionType(String),
 
     #[error("Require config key '{0}' not found")]
     RequireConfigKeyNotFound(&'static str),

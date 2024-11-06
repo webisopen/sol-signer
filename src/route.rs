@@ -1,10 +1,12 @@
+use std::hash::{DefaultHasher, Hash, Hasher};
+
 use crate::error::RPCResult;
 use crate::prelude::*;
 use crate::signer::SignerConfig;
 use alloy::{
-    eips::eip2718::Encodable2718,
     network::TransactionBuilder,
-    primitives::TxKind,
+    primitives::{address, TxKind},
+    rlp::Encodable,
     rpc::types::{TransactionInput, TransactionRequest},
 };
 use tracing::info;
@@ -67,26 +69,42 @@ async fn sign(
         return Err(Error::InvalidRpcMethod(method)).map_err(rpc_err_map);
     }
 
+    let mut req_hash = DefaultHasher::new();
+    request.clone().hash(&mut req_hash);
+
     let gas_price = request.gas_price();
 
-    let wallet = config.wallet().await.map_err(rpc_err_map)?;
-    let tx_envelop = request
+    let tx = request
         .with_gas_price(gas_price.unwrap_or(90000))
-        .build(&wallet)
-        .await
-        .map_err(Error::TransactionBuilderError)
+        .build_consensus_tx()
+        .map_err(|e| Error::BuildTransactionError(e.error))
         .map_err(rpc_err_map)?;
 
-    let mut encoded_tx = Vec::<u8>::new();
+    let mut tx_hash = DefaultHasher::new();
+    tx.hash(&mut tx_hash);
 
-    tx_envelop.encode_2718(&mut encoded_tx);
+    let signature = config.sign_transaction(tx).await.map_err(rpc_err_map)?;
 
-    let hex_string: String = encoded_tx.iter().map(|b| format!("{:02x?}", b)).collect();
+    let mut sign_hash = DefaultHasher::new();
+    signature.hash(&mut sign_hash);
+
+    info!(
+        request = req_hash.finish(),
+        tx = tx_hash.finish(),
+        sign = sign_hash.finish(),
+        "check hash"
+    );
+
+    let mut encoded_sign = Vec::<u8>::new();
+
+    signature.encode(&mut encoded_sign);
+
+    let hex: String = encoded_sign.iter().map(|b| format!("{:02x}", b)).collect();
 
     Ok(Json(SignReponse {
         id,
         jsonrpc,
-        result: format!("0x{}", hex_string),
+        result: format!("0x{}", hex),
     }))
 }
 

@@ -22,6 +22,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 version = "0.5"
 features = [
     "full",
+    "rlp",
     "signer-keystore",
     "signer-mnemonic",
     "signer-aws",

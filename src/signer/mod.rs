@@ -1,6 +1,7 @@
 use crate::prelude::*;
 use alloy::{
-    network::{EthereumWallet, TxSigner},
+    consensus::TypedTransaction,
+    network::TxSigner,
     primitives::Address,
     signers::{
         aws::AwsSigner,
@@ -46,12 +47,7 @@ pub enum SignerConfig {
 }
 
 impl SignerConfig {
-    pub async fn wallet(&self) -> Result<EthereumWallet> {
-        let signer = self.signer().await?;
-        Ok(EthereumWallet::from(signer))
-    }
-
-    async fn signer(&self) -> Result<Box<dyn TxSigner<Signature> + Send + Sync + 'static>> {
+    pub async fn signer(&self) -> Result<Box<dyn TxSigner<Signature> + Send + Sync + 'static>> {
         let signer: Box<dyn TxSigner<Signature> + Send + Sync + 'static> = match self {
             SignerConfig::PrivateKey(key) => Box::new(key.parse::<PrivateKeySigner>()?),
             SignerConfig::Mnemonic(mnemonic) => Box::new(
@@ -89,6 +85,30 @@ impl SignerConfig {
             _ => unimplemented!(),
         };
         Ok(signer)
+    }
+
+    pub async fn sign_transaction(&self, tx: TypedTransaction) -> Result<Signature> {
+        let signer = self.signer().await?;
+
+        match tx {
+            TypedTransaction::Eip1559(tx) => {
+                let mut tx_1559 = tx.clone();
+
+                signer
+                    .sign_transaction(&mut tx_1559)
+                    .await
+                    .map_err(Error::SignerError)
+            }
+            TypedTransaction::Eip4844(tx) => {
+                let mut tx_4844 = tx.clone();
+
+                signer
+                    .sign_transaction(&mut tx_4844)
+                    .await
+                    .map_err(Error::SignerError)
+            }
+            tx => Err(Error::InvalidTransactionType(tx.tx_type().to_string())),
+        }
     }
 
     pub async fn address(&self) -> Result<Address> {
