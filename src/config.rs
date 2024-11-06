@@ -3,11 +3,17 @@ use clap::Parser;
 
 use crate::signer::SignerConfig;
 
+#[cfg(debug_assertions)]
+const DEBUG: bool = true;
+
+#[cfg(not(debug_assertions))]
+const DEBUG: bool = false;
+
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None)]
 #[command(next_line_help = true)]
 pub struct SignerOpts {
-    #[arg(short, long, default_value_t = false)]
+    #[arg(short, long, default_value_t = DEBUG)]
     pub debug: bool,
 
     #[arg(name = "type", short = 't', long, env = "SIGNER_TYPE")]
