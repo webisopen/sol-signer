@@ -72,11 +72,8 @@ async fn sign(
     let mut req_hash = DefaultHasher::new();
     request.clone().hash(&mut req_hash);
 
-    let gas_price = request.gas_price();
-
     let wallet = config.wallet().await.map_err(rpc_err_map)?;
     let tx_envelop = request
-        .with_gas_price(gas_price.unwrap_or(90000))
         .build(&wallet)
         .await
         .map_err(Error::TransactionBuilderError)
