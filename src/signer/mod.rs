@@ -2,38 +2,28 @@ mod config;
 pub use config::SignerConfig;
 
 use crate::prelude::*;
-use alloy::{
-    network::{EthereumWallet, TxSigner},
-    primitives::{Address, PrimitiveSignature},
-    signers::{
-        aws::AwsSigner,
-        gcp::{GcpKeyRingRef, GcpSigner, KeySpecifier},
-        local::{coins_bip39::English, LocalSigner, MnemonicBuilder, PrivateKeySigner},
-    },
-};
-
 use gcloud_sdk::{
     google::cloud::kms::v1::key_management_service_client::KeyManagementServiceClient, GoogleApi,
 };
 
+use bip39::{Language, Mnemonic};
+
+use solana_sdk::{
+    pubkey::Pubkey,
+    signer::{keypair::Keypair, SeedDerivable, Signer},
+};
+use solana_signer_gcp::{GcpKeyRingRef, GcpSigner, KeySpecifier};
+
 impl SignerConfig {
-    async fn signer(
-        &self,
-    ) -> Result<Box<dyn TxSigner<PrimitiveSignature> + Send + Sync + 'static>> {
-        let signer: Box<dyn TxSigner<PrimitiveSignature> + Send + Sync + 'static> = match self {
-            SignerConfig::PrivateKey(key) => Box::new(key.parse::<PrivateKeySigner>()?),
-            SignerConfig::Mnemonic(mnemonic) => Box::new(
-                MnemonicBuilder::<English>::default()
-                    .phrase(mnemonic)
-                    .build()?,
-            ),
-            SignerConfig::KeyStore { path, password } => {
-                Box::new(LocalSigner::decrypt_keystore(path, password)?)
-            }
-            SignerConfig::AwsKms { key } => {
-                let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-                let client = aws_sdk_kms::Client::new(&config);
-                Box::new(AwsSigner::new(client, key.clone(), Some(1)).await?)
+    pub async fn signer(&self) -> Result<Box<dyn Signer>> {
+        let signer: Box<dyn Signer> = match self {
+            Self::PrivateKey(key) => Box::new(Keypair::from_base58_string(&key)),
+            SignerConfig::Mnemonic(mnemonic) => {
+                let _mnemonic = Mnemonic::from_phrase(&mnemonic, Language::English)
+                    .map_err(Error::Bip39Error)?;
+                let keypair =
+                    Keypair::from_seed(_mnemonic.entropy()).map_err(Error::CustomizeError)?;
+                Box::new(keypair)
             }
             Self::GoogleKms {
                 project_id,
@@ -52,21 +42,21 @@ impl SignerConfig {
                 .await?;
                 let key_specifier = KeySpecifier::new(keyring_ref, key, *version);
 
-                Box::new(GcpSigner::new(client, key_specifier, None).await?)
+                Box::new(GcpSigner::new(client, key_specifier).await?)
             }
             _ => unimplemented!(),
         };
         Ok(signer)
     }
 
-    pub async fn wallet(&self) -> Result<EthereumWallet> {
-        let signer = self.signer().await?;
-        Ok(EthereumWallet::new(signer))
-    }
+    // pub async fn wallet(&self) -> Result<EthereumWallet> {
+    //     let signer = self.signer().await?;
+    //     Ok(EthereumWallet::new(signer))
+    // }
 
-    pub async fn address(&self) -> Result<Address> {
+    pub async fn address(&self) -> Result<Pubkey> {
         let signer = self.signer().await?;
-        Ok(signer.address())
+        signer.try_pubkey().map_err(Error::SignerError)
     }
 }
 

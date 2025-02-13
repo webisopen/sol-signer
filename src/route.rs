@@ -3,12 +3,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use crate::error::RPCResult;
 use crate::prelude::*;
 use crate::signer::SignerConfig;
-use alloy::{
-    eips::eip2718::Encodable2718,
-    network::TransactionBuilder,
-    primitives::TxKind,
-    rpc::types::{TransactionInput, TransactionRequest},
-};
+use solana_sdk::transaction::Transaction;
 use tracing::info;
 
 use axum::{
@@ -28,7 +23,7 @@ struct SignRequest {
     id: u64,
     jsonrpc: String,
     method: String,
-    params: [TransactionRequest; 1],
+    params: [Transaction; 1],
 }
 
 #[derive(Debug, Serialize)]
@@ -49,55 +44,29 @@ async fn sign(
 ) -> RPCResult<Json<SignReponse>> {
     let rpc_err_map = |e: Error| e.rpc_error(id, jsonrpc.clone());
 
-    {
-        let TransactionRequest {
-            from, to, input, ..
-        } = request.clone();
-        let TransactionInput { input, data } = input;
-        let input = input.map(|i| i.to_string());
-        let data = data.map(|d| d.to_string());
-
-        let from = from.unwrap_or_default();
-        let to = to.map(|kind| match kind {
-            TxKind::Create => String::from("create"),
-            TxKind::Call(addr) => addr.to_string(),
-        });
-        info!(from = from.to_string(), to, input, data, "sign request");
-    };
-
-    if method != "eth_signTransaction" {
+    if method != "signTransaction" {
         return Err(Error::InvalidRpcMethod(method)).map_err(rpc_err_map);
     }
 
-    let mut req_hash = DefaultHasher::new();
-    request.clone().hash(&mut req_hash);
+    let req_hash = request.message().hash();
 
-    let wallet = config.wallet().await.map_err(rpc_err_map)?;
-    let tx_envelop = request
-        .build(&wallet)
-        .await
-        .map_err(Error::TransactionBuilderError)
-        .map_err(rpc_err_map)?;
+    let signer = config.signer().await.map_err(rpc_err_map)?;
+
+    let signature = signer.sign_message(&request.message_data());
 
     let mut tx_hash = DefaultHasher::new();
-    tx_envelop.tx_hash().hash(&mut tx_hash);
+    signature.hash(&mut tx_hash);
 
     info!(
-        req_hash = req_hash.finish(),
+        req_hash = req_hash.to_string(),
         tx_hash = tx_hash.finish(),
         "sign tx"
     );
 
-    let mut encoded_tx = Vec::<u8>::new();
-
-    tx_envelop.encode_2718(&mut encoded_tx);
-
-    let hex_string: String = encoded_tx.iter().map(|b| format!("{:02x?}", b)).collect();
-
     Ok(Json(SignReponse {
         id,
         jsonrpc,
-        result: format!("0x{}", hex_string),
+        result: signature.to_string(),
     }))
 }
 

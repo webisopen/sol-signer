@@ -11,8 +11,8 @@ RUN cargo build --release
 FROM debian:bullseye-slim
 
 RUN apt update && apt install -y libssl1.1 openssl ca-certificates git
-COPY --from=builder /usr/src/app/target/release/eth-signer* /usr/local/bin/
+COPY --from=builder /usr/src/app/target/release/sol-signer* /usr/local/bin/
 
 EXPOSE 8000
 
-CMD [ "/usr/local/bin/eth-signer" ]
+CMD [ "/usr/local/bin/sol-signer" ]
